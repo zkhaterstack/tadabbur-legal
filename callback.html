@@ -4,18 +4,14 @@
 <body style="font-family:sans-serif;max-width:720px;margin:48px auto;padding:0 20px;color:#243E35;">
   <h2>Tadabbur TikTok Authorization</h2>
   <p id="status">Completing authorization...</p>
-  <pre id="codebox" style="background:#f3efe5;padding:14px;border-radius:8px;word-break:break-all;"></pre>
   <script>
     const params = new URLSearchParams(location.search);
     const code = params.get('code');
     const state = params.get('state') || '';
     if (code) {
-      document.getElementById('codebox').textContent = code;
-      const localUrl = `http://localhost:3456/tiktok/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`;
-      document.getElementById('status').innerHTML = `Redirecting to local Studio... If it doesn't redirect, <a href="${localUrl}">click here</a>.`;
-      location.replace(localUrl);
+      location.replace(`https://zkhaterstack.github.io/tadabbur-legal/studio.html?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`);
     } else {
-      document.getElementById('status').textContent = 'No authorization code received: ' + location.search;
+      document.getElementById('status').textContent = 'Authorization error: ' + location.search;
     }
   </script>
 </body>

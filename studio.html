@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Tadabbur Publisher — TikTok Studio</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:#F3EFE5; color:#292B28; margin:0; padding:32px 20px; }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  .hdr { display:flex; justify-content:space-between; align-items:center; background:#243E35; color:#F3EFE5; padding:20px 26px; border-radius:14px; margin-bottom:22px; }
+  .hdr h1 { margin:0; font-size:22px; }
+  .card { background:#FFFFFF; border:1px solid #D8CEBC; border-radius:14px; padding:22px; margin-bottom:18px; }
+  .btn { background:#243E35; color:#F3EFE5; border:none; padding:12px 22px; border-radius:10px; font-size:15px; font-weight:600; cursor:pointer; }
+  .btn:disabled { opacity:0.45; cursor:not-allowed; }
+  .btn-gold { background:#B49A68; color:#1E2E28; }
+  .grid { display:grid; grid-template-columns: 320px 1fr; gap:24px; align-items:start; }
+  .stats { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px; }
+  .stat { background:#FAF7F0; border:1px solid #E2D7C3; border-radius:10px; padding:10px; text-align:center; }
+  .stat b { display:block; font-size:18px; color:#243E35; }
+  label { display:block; font-weight:600; margin:12px 0 6px; font-size:14px; }
+  input[type=text], textarea, select { width:100%; padding:10px 12px; border:1px solid #C8BEA9; border-radius:8px; font-size:14px; box-sizing:border-box; }
+  .checks { display:flex; gap:18px; margin-top:8px; flex-wrap:wrap; }
+  .checks label { display:flex; align-items:center; gap:6px; font-weight:500; margin:0; cursor:pointer; }
+  .vitem { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; border-bottom:1px solid #EFE8DA; font-size:14px; }
+  .msg { padding:12px 14px; border-radius:8px; background:#FAF7F0; border:1px solid #B49A68; margin-top:14px; font-size:14px; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div>
+      <h1>Tadabbur Publisher — TikTok Content Studio</h1>
+      <div style="font-size:13px;opacity:0.85;">@tdbr.qr · Quranic Recitations &amp; Reflections</div>
+    </div>
+    <button class="btn btn-gold" id="loginBtn" onclick="loginTikTok()">Login with TikTok</button>
+  </div>
+
+  <div class="card" id="profileCard" style="display:none;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img id="avatar" src="" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #B49A68;"/>
+      <div>
+        <div style="font-size:18px;font-weight:700;" id="displayName"></div>
+        <div style="font-size:13px;color:#555;" id="bioText"></div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sFollowers">0</b><span>Followers</span></div>
+      <div class="stat"><b id="sFollowing">0</b><span>Following</span></div>
+      <div class="stat"><b id="sLikes">0</b><span>Likes</span></div>
+      <div class="stat"><b id="sVideos">0</b><span>Videos</span></div>
+    </div>
+  </div>
+
+  <div class="card" id="publishCard" style="display:none;">
+    <h3 style="margin-top:0;color:#243E35;">Direct Post / Upload to TikTok</h3>
+    <div class="grid">
+      <div>
+        <video id="previewVideo" controls style="width:100%;border-radius:12px;background:#000;"></video>
+      </div>
+      <div>
+        <label>Publish Method</label>
+        <select id="publishMode">
+          <option value="direct">Direct Post to TikTok Profile (video.publish)</option>
+          <option value="inbox">Send as Draft to TikTok Inbox (video.upload)</option>
+        </select>
+
+        <label>Caption / Title</label>
+        <textarea id="captionBox" rows="5"></textarea>
+
+        <label>Who can watch this video (Required — select manually)</label>
+        <select id="privacySelect" onchange="validateForm()">
+          <option value="">-- Select Privacy Level --</option>
+        </select>
+
+        <label>Allow users to (optional — none pre-selected)</label>
+        <div class="checks">
+          <label><input type="checkbox" id="chkComment"/> Comment</label>
+          <label><input type="checkbox" id="chkDuet"/> Duet</label>
+          <label><input type="checkbox" id="chkStitch"/> Stitch</label>
+        </div>
+
+        <p style="font-size:12px;color:#666;margin-top:14px;">
+          By posting, you confirm that this content complies with TikTok's Music Usage Confirmation and Community Guidelines.
+        </p>
+
+        <button class="btn" id="pubBtn" disabled onclick="publishNow()">Publish to TikTok</button>
+        <div class="msg" id="pubStatus" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="videosCard" style="display:none;">
+    <h3 style="margin-top:0;color:#243E35;">Recent Videos &amp; Manage (video.list / video.manage)</h3>
+    <div id="videosList"></div>
+  </div>
+</div>
+
+<script>
+const BRIDGE = 'http://localhost:3457';
+
+async function loginTikTok() {
+  const r = await fetch(`${BRIDGE}/tiktok/auth-url`);
+  const d = await r.json();
+  location.href = d.authUrl;
+}
+
+function validateForm() {
+  const priv = document.getElementById('privacySelect').value;
+  const mode = document.getElementById('publishMode').value;
+  document.getElementById('pubBtn').disabled = (mode === 'direct' && !priv);
+}
+document.getElementById('publishMode').addEventListener('change', validateForm);
+
+async function publishNow() {
+  const btn = document.getElementById('pubBtn');
+  const box = document.getElementById('pubStatus');
+  btn.disabled = true;
+  box.style.display = 'block';
+  box.textContent = 'Uploading MP4 to TikTok via Content Posting API...';
+
+  const r = await fetch(`${BRIDGE}/tiktok/publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: document.getElementById('captionBox').value,
+      privacyLevel: document.getElementById('privacySelect').value,
+      allowComment: document.getElementById('chkComment').checked,
+      allowDuet: document.getElementById('chkDuet').checked,
+      allowStitch: document.getElementById('chkStitch').checked,
+      publishMode: document.getElementById('publishMode').value,
+    }),
+  });
+  const d = await r.json();
+  box.textContent = JSON.stringify(d, null, 2);
+  btn.disabled = false;
+}
+
+(async () => {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  if (!code) return;
+
+  document.getElementById('loginBtn').textContent = 'Authorizing...';
+  const r = await fetch(`${BRIDGE}/tiktok/exchange`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  const d = await r.json();
+  if (!d.ok) {
+    alert('OAuth Exchange failed: ' + JSON.stringify(d));
+    return;
+  }
+
+  document.getElementById('loginBtn').textContent = 'Connected ✓';
+  document.getElementById('profileCard').style.display = 'block';
+  document.getElementById('publishCard').style.display = 'block';
+  document.getElementById('videosCard').style.display = 'block';
+
+  const u = d.user || {};
+  document.getElementById('avatar').src = u.avatar_url || '';
+  document.getElementById('displayName').textContent = u.display_name || 'TikTok Creator';
+  document.getElementById('bioText').textContent = u.bio_description || '';
+  document.getElementById('sFollowers').textContent = u.follower_count ?? 0;
+  document.getElementById('sFollowing').textContent = u.following_count ?? 0;
+  document.getElementById('sLikes').textContent = u.likes_count ?? 0;
+  document.getElementById('sVideos').textContent = u.video_count ?? 0;
+
+  document.getElementById('previewVideo').src = `${BRIDGE}/tiktok/video-preview`;
+  document.getElementById('captionBox').value = d.defaultCaption || '';
+
+  const sel = document.getElementById('privacySelect');
+  const opts = d.creatorInfo?.privacy_level_options || ['SELF_ONLY'];
+  for (const o of opts) {
+    const el = document.createElement('option');
+    el.value = o;
+    el.textContent = o;
+    sel.appendChild(el);
+  }
+
+  const vList = document.getElementById('videosList');
+  if ((d.videos || []).length === 0) {
+    vList.innerHTML = '<div style="color:#777;">No public videos yet in Sandbox.</div>';
+  } else {
+    vList.innerHTML = d.videos.map(v => `
+      <div class="vitem">
+        <span>${v.title || v.id} (${v.view_count ?? 0} views)</span>
+        <button class="btn" style="padding:6px 12px;font-size:12px;" onclick="alert('Inspecting video ID: ${v.id}')">Inspect</button>
+      </div>
+    `).join('');
+  }
+})();
+</script>
+</body>
+</html>
